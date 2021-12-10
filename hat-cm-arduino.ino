@@ -80,46 +80,56 @@ void update_port_registers (const unsigned short gate, const bool disable = fals
   }
 }
 
+void parse_serial_buffer (const byte* buffer) {
+  static const unsigned short len = xdim * ydim / bits_per_part;
+  byte parsed[len];
+
+  for (unsigned int i = 0; i < len; i++) {
+    for (unsigned int j = 0; j < bits_per_part; j++) {
+      bool val = buffer[i * bits_per_part + j] == '1';
+      parsed[i] |= ((byte) val) << j;
+    }
+  }
+  
+  calc_source_states(parsed);
+}
+
+const byte imgdata_ones[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
 void setup () {  
-    Serial.begin(115200);
+  Serial.begin(115200);
+  Serial.setTimeout(1); // We use this as the sleep in the loop. Hopefully it kinda works
     
-    for (auto& g : GATES) {
-      pinMode(g, OUTPUT);
-      digitalWrite(g, HIGH);
-    }
+  for (auto& g : GATES) {
+    pinMode(g, OUTPUT);
+    digitalWrite(g, HIGH);
+  }
 
-    for (auto& s : SOURCES) {
-      pinMode(s, OUTPUT);
-      digitalWrite(s, HIGH);
-    }
+  for (auto& s : SOURCES) {
+    pinMode(s, OUTPUT);
+    digitalWrite(s, HIGH);
+  }
 
-    generate_maps();
+  generate_maps();
+  calc_source_states(imgdata_ones); 
 }
 
 
 // Test data
+/*
 const byte imgdata_zeros[] = {B00000000, B00000000, B00000000, B00000000, B00000000, B00000000};
-const byte imgdata_ones[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 const byte imgdata_pattern[] = {B01100101, B01100101, B01100101, B01100101, B01100101, B01100101};
+*/
 
-int i = 0;
-int n = 0;
+int gate = 0;
+byte serial_buffer[48];
 
-void loop () {
-  update_port_registers(n % 8);
-
-  if (i == 0) {
-    calc_source_states(imgdata_zeros);
-  } else if (i == 1) {
-    calc_source_states(imgdata_ones);
-  } else {
-    calc_source_states(imgdata_pattern);
+void loop () { 
+  update_port_registers(gate);
+  gate = (gate + 1) % 8;
+  
+  auto res = Serial.readBytesUntil('\n', serial_buffer, 48);
+  if (res != 0) {
+    parse_serial_buffer(serial_buffer);
   }
-
-  if (n > 1023) {
-    n = 0;
-    i = (i + 1) % 3;
-  }
-  n++;
-  delay(1);
 }
