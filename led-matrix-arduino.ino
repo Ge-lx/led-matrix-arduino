@@ -26,13 +26,13 @@ unsigned short SOURCE_STATES[gates];
 void generate_maps () {
   for (unsigned int g = 0; g < gates; g++) {
     unsigned short n = 0;
-    for (unsigned short part = 0; part < gate_map_parts; part++) {    
+    for (unsigned short part = 0; part < gate_map_parts; part++) {
       GATE_MAPS[g][part] = 0;
       for (byte b = 0; b < bits_per_part; b++) {
         const unsigned short c = b + (part * bits_per_part);
         const unsigned short x = c % xdim;
         const unsigned short y = c / xdim;
-  
+
         if (MAPPING[x][y].gate == g) {
           GATE_MAPS[g][part] |= 0x1 << b;
           SOURCE_MAPS[g][n][0] = c;
@@ -48,14 +48,14 @@ void calc_source_states (const byte* image) {
   for (unsigned short g = 0; g < gates; g++) {
     SOURCE_STATES[g] = 0;
     unsigned int next_pixel = 0;
-    
+
     for (byte part = 0; part < gate_map_parts; part++) {
       if (SOURCE_MAPS[g][next_pixel][0] >= (part + 1) * bits_per_part) {
         continue;
       }
       const byte masked = image[part] & GATE_MAPS[g][part];
       for (unsigned int n = next_pixel; n < sources; n++) {
-        const unsigned short img_idx = SOURCE_MAPS[g][n][0];       
+        const unsigned short img_idx = SOURCE_MAPS[g][n][0];
         if (img_idx >= (part + 1) * bits_per_part) {
           break;
         }
@@ -90,16 +90,16 @@ void parse_serial_buffer (const byte* buffer) {
       parsed[i] |= ((byte) val) << j;
     }
   }
-  
+
   calc_source_states(parsed);
 }
 
 const byte imgdata_ones[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-void setup () {  
+void setup () {
   Serial.begin(115200);
   Serial.setTimeout(1); // We use this as the sleep in the loop. Hopefully it kinda works
-    
+
   for (auto& g : GATES) {
     pinMode(g, OUTPUT);
     digitalWrite(g, HIGH);
@@ -111,7 +111,7 @@ void setup () {
   }
 
   generate_maps();
-  calc_source_states(imgdata_ones); 
+  calc_source_states(imgdata_ones);
 }
 
 
@@ -124,10 +124,10 @@ const byte imgdata_pattern[] = {B01100101, B01100101, B01100101, B01100101, B011
 int gate = 0;
 byte serial_buffer[48];
 
-void loop () { 
+void loop () {
   update_port_registers(gate);
   gate = (gate + 1) % 8;
-  
+
   auto res = Serial.readBytesUntil('\n', serial_buffer, 48);
   if (res != 0) {
     parse_serial_buffer(serial_buffer);
